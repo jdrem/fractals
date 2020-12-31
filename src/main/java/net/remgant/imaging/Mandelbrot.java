@@ -38,8 +38,8 @@ public class Mandelbrot extends JFrame {
         pack();
         setVisible(true);
 
-        double xc = -1.5;
-        double yc = -1.0;
+        double xc = -0.5;
+        double yc = 0.0;
         double width = 2.0;
         double height = 2.0;
         try {
@@ -71,8 +71,8 @@ public class Mandelbrot extends JFrame {
             this.y = y;
             this.w = w;
             this.h = h;
-            this.xc = xc;
-            this.yc = yc;
+            this.xc = xc - width/2.0;
+            this.yc = yc - height/2.0;
             this.width = width;
             this.height = height;
             this.image = image;
