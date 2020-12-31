@@ -2,12 +2,14 @@ package net.remgant.imaging;
 
 import org.apache.commons.math3.complex.Complex;
 
+import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.util.Arrays;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class Julia extends AbstractFractalCreator {
     public static void main(String[] args) {
@@ -19,21 +21,28 @@ public class Julia extends AbstractFractalCreator {
         double width = 4.0;
         double height = 4.0;
         Complex c0 = Complex.valueOf(0.7885).multiply(Complex.valueOf(0.0, Math.PI).exp());
+        ExecutorService executorService = Executors.newFixedThreadPool(8);
+        List<Future<BufferedImage>> futuresList;
         try {
-            Executors.newFixedThreadPool(4).invokeAll(Arrays.asList(
-                    new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2, c0, width, height, panel.getImage()),
-                    new ImageDrawer(0, 400, windowWidth / 2, windowHeight / 2, c0, width, height, panel.getImage()),
-                    new ImageDrawer(400, 0, windowWidth / 2, windowHeight / 2, c0, width, height, panel.getImage()),
-                    new ImageDrawer(400, 400, windowWidth / 2, windowHeight / 2, c0, width, height, panel.getImage())
-            ));
+            futuresList = executorService.invokeAll(Collections.singletonList(new ImageDrawer( windowWidth, windowHeight, c0, width, height)));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+        List<BufferedImage> bufferedImageList = futuresList.stream()
+                .filter(Future::isDone)
+                .map(f -> {
+                    try {
+                        return Optional.of(f.get());
+                    } catch (InterruptedException | ExecutionException e) {
+                        return Optional.<BufferedImage>empty();
+                    }})
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+        ((ImagePanel)panel).setImageList(bufferedImageList);
     }
 
-    static class ImageDrawer implements Callable<Void> {
-        int x;
-        int y;
+    static class ImageDrawer implements Callable<BufferedImage> {
         int w;
         int h;
         Complex c0;
@@ -43,9 +52,7 @@ public class Julia extends AbstractFractalCreator {
         double height;
         BufferedImage image;
 
-        public ImageDrawer(int x, int y, int w, int h, Complex c0, double width, double height, BufferedImage image) {
-            this.x = x;
-            this.y = y;
+        public ImageDrawer(int w, int h, Complex c0, double width, double height) {
             this.w = w;
             this.h = h;
             this.c0 = c0;
@@ -53,16 +60,16 @@ public class Julia extends AbstractFractalCreator {
             this.yc = -height / 2.0;
             this.width = width;
             this.height = height;
-            this.image = image;
+            this.image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         }
 
-        public Void call() {
+        public BufferedImage call() {
             final int iterationLimit = 256;
             double xSlice = width / (double) image.getWidth();
             double ySlice = height / (double) image.getHeight();
             Graphics2D g = image.createGraphics();
-            for (int i = x; i < w + x; i++) {
-                for (int j = y; j < h + y; j++) {
+            for (int i = 0; i < w; i++) {
+                for (int j = 0; j < h; j++) {
                     int iterations = 0;
                     double re = xc + (double) i * xSlice;
                     double im = yc + (double) j * ySlice;
@@ -82,7 +89,56 @@ public class Julia extends AbstractFractalCreator {
                     g.fill(new Rectangle2D.Double(i, j, 1.0, 1.0));
                 }
             }
-            return null;
+            return image;
+        }
+    }
+
+    @Override
+    protected JPanel createPanel() {
+        return new ImagePanel(new Dimension(windowWidth, windowHeight));
+    }
+
+    static protected class ImagePanel extends JPanel {
+        private final BufferedImage defaultImage;
+        java.util.List<BufferedImage> imageList;
+        Iterator<BufferedImage> imageIterator;
+
+        ImagePanel(Dimension d) {
+            super();
+            defaultImage = new BufferedImage(d.width, d.height, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = defaultImage.createGraphics();
+            g.setColor(Color.BLACK);
+            g.fill(new Rectangle2D.Double(0.0, 0.0, d.width, d.height));
+        }
+
+        public void setImageList(List<BufferedImage> imageList) {
+            this.imageList = imageList;
+        }
+
+        @Override
+        public void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (imageList == null) {
+                g.drawImage(defaultImage, 0, 0, Color.gray, this);
+            } else {
+                if (imageIterator == null || !imageIterator.hasNext())
+                    imageIterator = imageList.iterator();
+                g.drawImage(imageIterator.next(), 0, 0, Color.gray, this);
+            }
+
+        }
+
+        public double getWidth2D() {
+            return getWidth();
+        }
+
+        public double getHeight2D() {
+            return getHeight();
+        }
+
+        @SuppressWarnings("unused")
+        public Rectangle2D getBounds2D() {
+            return new Rectangle2D.Double(0.0, 0.0, getWidth2D(), getHeight2D());
         }
     }
 
