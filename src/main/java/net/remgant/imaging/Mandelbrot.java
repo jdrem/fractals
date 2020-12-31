@@ -13,30 +13,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class Mandelbrot extends JFrame {
+public class Mandelbrot extends AbstractFractalCreator {
 
     public static void main(String[] args) {
         new Mandelbrot();
     }
 
-    int windowWidth = 800;
-    int windowHeight = 800;
-    ImagePanel panel;
-
     public Mandelbrot() {
         super("Mandelbrot");
-        setBounds(0, 0, windowWidth, windowHeight);
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                System.exit(0);
-            }
-        });
-        Dimension size = new Dimension(windowWidth, windowHeight);
-        panel = new ImagePanel(size);
-        getContentPane().add("Center", panel);
-        panel.setPreferredSize(size);
-        pack();
-        setVisible(true);
 
         double xc = -0.5;
         double yc = 0.0;
@@ -44,15 +28,20 @@ public class Mandelbrot extends JFrame {
         double height = 2.0;
         try {
             Executors.newFixedThreadPool(4).invokeAll(Arrays.asList(
-                    new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, panel.getImage()),
-                    new ImageDrawer(0, 400, windowWidth / 2, windowHeight, xc, yc, width, height, panel.getImage()),
-                    new ImageDrawer(400, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, panel.getImage()),
-                    new ImageDrawer(400, 400, windowWidth / 2, windowHeight / 2, xc, yc, width, height, panel.getImage())
+                    new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, ((ImagePanel)panel).getImage()),
+                    new ImageDrawer(0, 400, windowWidth / 2, windowHeight, xc, yc, width, height, ((ImagePanel)panel).getImage()),
+                    new ImageDrawer(400, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, ((ImagePanel)panel).getImage()),
+                    new ImageDrawer(400, 400, windowWidth / 2, windowHeight / 2, xc, yc, width, height, ((ImagePanel)panel).getImage())
             ));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> panel.repaint(), 0, 500, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    protected JPanel createPanel() {
+        return new Mandelbrot.ImagePanel(new Dimension(windowWidth, windowHeight));
     }
 
     static class ImageDrawer implements Callable<Void> {
