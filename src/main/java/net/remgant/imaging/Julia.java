@@ -20,11 +20,17 @@ public class Julia extends AbstractFractalCreator {
         super("Julia");
         double width = 4.0;
         double height = 4.0;
-        Complex c0 = Complex.valueOf(0.7885).multiply(Complex.valueOf(0.0, Math.PI).exp());
+        int imageCount = 24;
+        double interval = (2.0 * Math.PI) / imageCount;
+        List<ImageDrawer> imageDrawerList = new ArrayList<>();
+        for (int i=0; i<imageCount; i++ ) {
+            Complex c0 = Complex.valueOf(0.7885).multiply(Complex.valueOf(0.0, (double)i * interval).exp());
+            imageDrawerList.add(new ImageDrawer( windowWidth, windowHeight, c0, width, height));
+        }
         ExecutorService executorService = Executors.newFixedThreadPool(8);
         List<Future<BufferedImage>> futuresList;
         try {
-            futuresList = executorService.invokeAll(Collections.singletonList(new ImageDrawer( windowWidth, windowHeight, c0, width, height)));
+            futuresList = executorService.invokeAll(imageDrawerList);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
