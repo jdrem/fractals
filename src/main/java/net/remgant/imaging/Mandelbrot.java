@@ -8,6 +8,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.util.Arrays;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -17,9 +19,10 @@ public class Mandelbrot extends JFrame {
         new Mandelbrot();
     }
 
-    int windowWidth  = 800;
+    int windowWidth = 800;
     int windowHeight = 800;
     ImagePanel panel;
+
     public Mandelbrot() {
         super("Mandelbrot");
         setBounds(0, 0, windowWidth, windowHeight);
@@ -34,14 +37,25 @@ public class Mandelbrot extends JFrame {
         panel.setPreferredSize(size);
         pack();
         setVisible(true);
-        Graphics2D g = panel.createGraphics();
 
-        ImageDrawer imageDrawer = new ImageDrawer(0, 0, windowWidth, windowHeight, -1.5, -1.0, 2.0, 2.0, g);
-        new Thread(imageDrawer).start();
+        double xc = -1.5;
+        double yc = -1.0;
+        double width = 2.0;
+        double height = 2.0;
+        try {
+            Executors.newFixedThreadPool(4).invokeAll(Arrays.asList(
+                    new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, panel.getImage()),
+                    new ImageDrawer(0, 400, windowWidth / 2, windowHeight, xc, yc, width, height, panel.getImage()),
+                    new ImageDrawer(400, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, panel.getImage()),
+                    new ImageDrawer(400, 400, windowWidth / 2, windowHeight / 2, xc, yc, width, height, panel.getImage())
+            ));
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> panel.repaint(), 0, 500, TimeUnit.MILLISECONDS);
     }
 
-    static class ImageDrawer implements Runnable {
+    static class ImageDrawer implements Callable<Void> {
         int x;
         int y;
         int w;
@@ -50,9 +64,9 @@ public class Mandelbrot extends JFrame {
         double yc;
         double width;
         double height;
-        Graphics2D g;
+        BufferedImage image;
 
-        public ImageDrawer(int x, int y, int w, int h, double xc, double yc, double width, double height, Graphics2D g) {
+        public ImageDrawer(int x, int y, int w, int h, double xc, double yc, double width, double height, BufferedImage image) {
             this.x = x;
             this.y = y;
             this.w = w;
@@ -61,21 +75,19 @@ public class Mandelbrot extends JFrame {
             this.yc = yc;
             this.width = width;
             this.height = height;
-            this.g = g;
+            this.image = image;
         }
 
-        public void run() {
+        public Void call() {
             final int iterationLimit = 256;
-            double xSlice = width / (double)w;
-            double ySlice = height / (double)h;
-            System.out.printf("%4.3f %4.3f%n", xc, yc);
-            System.out.printf("%4.3f %4.3f%n", xc + width/2.0, yc + height/2.0);
-            System.out.printf("%4.3f %4.3f%n", xc + width, yc + height);
-            for (int i = x; i<w; i++) {
-                for (int j=y; j<h; j++) {
+            double xSlice = width / (double) image.getWidth();
+            double ySlice = height / (double) image.getHeight();
+            Graphics2D g = image.createGraphics();
+            for (int i = x; i < w + x; i++) {
+                for (int j = y; j < h + y; j++) {
                     int iterations = 0;
-                    double re = xc + (double)i * xSlice;
-                    double im = yc + (double)j * ySlice;
+                    double re = xc + (double) i * xSlice;
+                    double im = yc + (double) j * ySlice;
                     Complex c = new Complex(re, im);
                     Complex c0 = c;
                     while (c.abs() < 2.0 && iterations < iterationLimit) {
@@ -86,15 +98,17 @@ public class Mandelbrot extends JFrame {
                     if (iterations >= iterationLimit)
                         color = Color.BLACK;
                     else {
-                        float f = (float)iterations/(float)iterationLimit;
+                        float f = (float) iterations / (float) iterationLimit;
                         color = Color.getHSBColor(f, 1.0f, 1.0f);
                     }
                     g.setColor(color);
-                    g.fill(new Rectangle2D.Double(i,j,1.0, 1.0));
+                    g.fill(new Rectangle2D.Double(i, j, 1.0, 1.0));
                 }
             }
+            return null;
         }
     }
+
     static class ImagePanel extends JPanel {
         private final BufferedImage image;
 
@@ -109,10 +123,6 @@ public class Mandelbrot extends JFrame {
             g.drawImage(image, 0, 0, Color.gray, this);
         }
 
-        public Graphics2D createGraphics() {
-            return image.createGraphics();
-        }
-
         public double getWidth2D() {
             return getWidth();
         }
@@ -123,7 +133,11 @@ public class Mandelbrot extends JFrame {
 
         @SuppressWarnings("unused")
         public Rectangle2D getBounds2D() {
-            return new Rectangle2D.Double(0.0,0.0,getWidth2D(),getHeight2D());
+            return new Rectangle2D.Double(0.0, 0.0, getWidth2D(), getHeight2D());
+        }
+
+        public BufferedImage getImage() {
+            return image;
         }
     }
 }
