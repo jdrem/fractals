@@ -1,4 +1,4 @@
-package net.remgant.imaging;
+package net.remgant.fractals;
 
 import org.apache.commons.math3.complex.Complex;
 

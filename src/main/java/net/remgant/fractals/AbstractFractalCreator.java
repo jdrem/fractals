@@ -1,4 +1,4 @@
-package net.remgant.imaging;
+package net.remgant.fractals;
 
 import javax.swing.*;
 import java.awt.*;
