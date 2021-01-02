@@ -10,6 +10,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.util.Deque;
 import java.util.Stack;
 import java.util.concurrent.*;
 
@@ -27,7 +28,7 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener,
     double width;
     double height;
     ExecutorService executorService;
-    Stack<BufferedImage> imageStack;
+    Deque<BufferedImage> imageStack;
 
     public Mandelbrot() {
         super("Mandelbrot");
@@ -36,7 +37,7 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener,
         yc = 0.0;
         width = 2.0;
         height = 2.0;
-        imageStack = new Stack<>();
+        imageStack = new ConcurrentLinkedDeque<>();
         executorService = Executors.newFixedThreadPool(4);
         drawImage(xc, yc, windowWidth, windowHeight, width, height);
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> panel.repaint(), 0, 500, TimeUnit.MILLISECONDS);
@@ -56,7 +57,6 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener,
     }
 
     private void saveImage(BufferedImage image) {
-        System.out.printf("Saving image %s%n", image);
         imageStack.push(image);
         ((ImagePanel)panel).setImage(image);
         panel.repaint();
@@ -69,7 +69,6 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener,
 
     @Override
     public void mouseClicked(MouseEvent e) {
-        System.out.printf("mouse click (%4.3f, %4.3f)%n", (double) e.getX() / (double) windowWidth, (double) e.getY() / (double) windowHeight);
         BufferedImage image = ((ImagePanel)panel).getImage();
         double dx = (double)(e.getX() - image.getWidth()/2)/(double)image.getWidth();
         double dy = (double)(e.getY() - image.getHeight()/2)/(double)image.getHeight();
@@ -109,18 +108,15 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener,
 
     @Override
     public void keyPressed(KeyEvent e) {
-        System.out.printf("Key pressed: %s%n",e);
         if (e.getKeyCode() == VK_CONTROL)
             controlButtonPressed = true;
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        System.out.printf("Key released: %s%n", e);
         if (e.getKeyCode() == VK_CONTROL)
             controlButtonPressed = false;
-        if (controlButtonPressed && e.getKeyCode() == VK_P && !imageStack.empty()) {
-            System.out.println("restoring image");
+        if (controlButtonPressed && e.getKeyCode() == VK_P && imageStack.size() > 0) {
             BufferedImage image = imageStack.pop();
             ((ImagePanel)panel).setImage(image);
             panel.repaint();
