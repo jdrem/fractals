@@ -4,16 +4,20 @@ import org.apache.commons.math3.complex.Complex;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.Deque;
+import java.util.Stack;
+import java.util.concurrent.*;
 
-public class Mandelbrot extends AbstractFractalCreator implements MouseListener {
+import static java.awt.event.KeyEvent.VK_CONTROL;
+import static java.awt.event.KeyEvent.VK_P;
+
+public class Mandelbrot extends AbstractFractalCreator implements MouseListener, KeyListener {
 
     public static void main(String[] args) {
         new Mandelbrot();
@@ -24,6 +28,7 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener 
     double width;
     double height;
     ExecutorService executorService;
+    Deque<BufferedImage> imageStack;
 
     public Mandelbrot() {
         super("Mandelbrot");
@@ -32,17 +37,29 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener 
         yc = 0.0;
         width = 2.0;
         height = 2.0;
+        imageStack = new ConcurrentLinkedDeque<>();
         executorService = Executors.newFixedThreadPool(4);
-        drawImage(xc, yc, windowWidth, windowHeight, width, height, ((ImagePanel) panel).getImage());
+        drawImage(xc, yc, windowWidth, windowHeight, width, height);
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> panel.repaint(), 0, 500, TimeUnit.MILLISECONDS);
         panel.addMouseListener(this);
+        panel.setFocusable(true);
+        panel.requestFocusInWindow();
+        panel.addKeyListener(this);
     }
 
-    private void drawImage(double xc, double yc, int windowWidth, int windowHeight, double width, double height, BufferedImage image) {
+    private void drawImage(double xc, double yc, int windowWidth, int windowHeight, double width, double height) {
+        BufferedImage image = new BufferedImage(windowWidth, windowHeight, BufferedImage.TYPE_INT_ARGB);
+        saveImage(image);
         executorService.submit(new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, image));
         executorService.submit(new ImageDrawer(0, windowHeight / 2, windowWidth / 2, windowHeight, xc, yc, width, height, image));
         executorService.submit(new ImageDrawer(windowWidth / 2, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, image));
         executorService.submit(new ImageDrawer(windowWidth / 2, windowHeight / 2, windowWidth / 2, windowHeight / 2, xc, yc, width, height, image));
+    }
+
+    private void saveImage(BufferedImage image) {
+        imageStack.push(image);
+        ((ImagePanel)panel).setImage(image);
+        panel.repaint();
     }
 
     @Override
@@ -52,7 +69,6 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener 
 
     @Override
     public void mouseClicked(MouseEvent e) {
-        System.out.printf("mouse click (%4.3f, %4.3f)%n", (double) e.getX() / (double) windowWidth, (double) e.getY() / (double) windowHeight);
         BufferedImage image = ((ImagePanel)panel).getImage();
         double dx = (double)(e.getX() - image.getWidth()/2)/(double)image.getWidth();
         double dy = (double)(e.getY() - image.getHeight()/2)/(double)image.getHeight();
@@ -60,7 +76,7 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener 
         yc = yc + dy * height;
         width /= 2.0;
         height /= 2.0;
-        drawImage(xc, yc, windowWidth, windowHeight, width, height, ((ImagePanel) panel).getImage());
+        drawImage(xc, yc, windowWidth, windowHeight, width, height);
     }
 
     @Override
@@ -81,6 +97,30 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener 
     @Override
     public void mouseExited(MouseEvent e) {
 
+    }
+
+    boolean controlButtonPressed;
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if (e.getKeyCode() == VK_CONTROL)
+            controlButtonPressed = true;
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        if (e.getKeyCode() == VK_CONTROL)
+            controlButtonPressed = false;
+        if (controlButtonPressed && e.getKeyCode() == VK_P && imageStack.size() > 0) {
+            BufferedImage image = imageStack.pop();
+            ((ImagePanel)panel).setImage(image);
+            panel.repaint();
+        }
     }
 
     static class ImageDrawer implements Callable<Void> {
@@ -138,7 +178,7 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener 
     }
 
     static class ImagePanel extends JPanel {
-        private final BufferedImage image;
+        private BufferedImage image;
 
         ImagePanel(Dimension d) {
             super();
@@ -166,6 +206,10 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener 
 
         public BufferedImage getImage() {
             return image;
+        }
+
+        public void setImage(BufferedImage image) {
+            this.image = image;
         }
     }
 }
