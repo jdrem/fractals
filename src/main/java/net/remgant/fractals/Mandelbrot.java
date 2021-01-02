@@ -4,42 +4,83 @@ import org.apache.commons.math3.complex.Complex;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.util.Arrays;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class Mandelbrot extends AbstractFractalCreator {
+public class Mandelbrot extends AbstractFractalCreator implements MouseListener {
 
     public static void main(String[] args) {
         new Mandelbrot();
     }
 
+    double xc;
+    double yc;
+    double width;
+    double height;
+    ExecutorService executorService;
+
     public Mandelbrot() {
         super("Mandelbrot");
 
-        double xc = -0.5;
-        double yc = 0.0;
-        double width = 2.0;
-        double height = 2.0;
-        try {
-            Executors.newFixedThreadPool(4).invokeAll(Arrays.asList(
-                    new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, ((ImagePanel)panel).getImage()),
-                    new ImageDrawer(0, 400, windowWidth / 2, windowHeight, xc, yc, width, height, ((ImagePanel)panel).getImage()),
-                    new ImageDrawer(400, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, ((ImagePanel)panel).getImage()),
-                    new ImageDrawer(400, 400, windowWidth / 2, windowHeight / 2, xc, yc, width, height, ((ImagePanel)panel).getImage())
-            ));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        xc = -0.5;
+        yc = 0.0;
+        width = 2.0;
+        height = 2.0;
+        executorService = Executors.newFixedThreadPool(4);
+        drawImage(xc, yc, windowWidth, windowHeight, width, height, ((ImagePanel) panel).getImage());
         Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> panel.repaint(), 0, 500, TimeUnit.MILLISECONDS);
+        panel.addMouseListener(this);
+    }
+
+    private void drawImage(double xc, double yc, int windowWidth, int windowHeight, double width, double height, BufferedImage image) {
+        executorService.submit(new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, image));
+        executorService.submit(new ImageDrawer(0, windowHeight / 2, windowWidth / 2, windowHeight, xc, yc, width, height, image));
+        executorService.submit(new ImageDrawer(windowWidth / 2, 0, windowWidth / 2, windowHeight / 2, xc, yc, width, height, image));
+        executorService.submit(new ImageDrawer(windowWidth / 2, windowHeight / 2, windowWidth / 2, windowHeight / 2, xc, yc, width, height, image));
     }
 
     @Override
     protected JPanel createPanel() {
         return new Mandelbrot.ImagePanel(new Dimension(windowWidth, windowHeight));
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e) {
+        System.out.printf("mouse click (%4.3f, %4.3f)%n", (double) e.getX() / (double) windowWidth, (double) e.getY() / (double) windowHeight);
+        BufferedImage image = ((ImagePanel)panel).getImage();
+        double dx = (double)(e.getX() - image.getWidth()/2)/(double)image.getWidth();
+        double dy = (double)(e.getY() - image.getHeight()/2)/(double)image.getHeight();
+        xc = xc + dx * width;
+        yc = yc + dy * height;
+        width /= 2.0;
+        height /= 2.0;
+        drawImage(xc, yc, windowWidth, windowHeight, width, height, ((ImagePanel) panel).getImage());
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
+
     }
 
     static class ImageDrawer implements Callable<Void> {
@@ -58,8 +99,8 @@ public class Mandelbrot extends AbstractFractalCreator {
             this.y = y;
             this.w = w;
             this.h = h;
-            this.xc = xc - width/2.0;
-            this.yc = yc - height/2.0;
+            this.xc = xc - width / 2.0;
+            this.yc = yc - height / 2.0;
             this.width = width;
             this.height = height;
             this.image = image;
