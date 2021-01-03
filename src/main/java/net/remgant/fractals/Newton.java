@@ -12,14 +12,16 @@ import java.util.concurrent.Executors;
 
 public class Newton extends AbstractFractalCreator {
     public static void main(String[] args) {
-        new Newton();
+        if (args.length == 0)
+            new Newton(4);
+        else
+            new Newton(Integer.parseInt(args[0]));
     }
 
-    public Newton() {
+    public Newton(int order) {
         super("Newton");
         double width = 4.0;
         double height = 4.0;
-        int order = 4;
         try {
             Executors.newFixedThreadPool(4).invokeAll(Arrays.asList(
                     new ImageDrawer(0, 0, windowWidth / 2, windowHeight / 2,width, height, order, ((ImagePanel)panel).getImage()),

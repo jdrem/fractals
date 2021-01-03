@@ -11,7 +11,6 @@ import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.Deque;
-import java.util.Stack;
 import java.util.concurrent.*;
 
 import static java.awt.event.KeyEvent.VK_CONTROL;
@@ -40,7 +39,6 @@ public class Mandelbrot extends AbstractFractalCreator implements MouseListener,
         imageStack = new ConcurrentLinkedDeque<>();
         executorService = Executors.newFixedThreadPool(4);
         drawImage(xc, yc, windowWidth, windowHeight, width, height);
-        Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> panel.repaint(), 0, 500, TimeUnit.MILLISECONDS);
         panel.addMouseListener(this);
         panel.setFocusable(true);
         panel.requestFocusInWindow();
